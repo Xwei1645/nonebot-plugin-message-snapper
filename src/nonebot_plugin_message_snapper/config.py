@@ -1,14 +1,12 @@
-from nonebot import get_driver, get_plugin_config
+from nonebot import get_plugin_config
 from pydantic import BaseModel
 
 
 class Config(BaseModel):
-    pass
+    message_snapper_template: str = ""
+    message_snapper_font_family: str = ""
+    message_snapper_group_info_cache_hours: float = 72.0
+    message_snapper_member_info_cache_hours: float = 72.0
 
 
-# 配置加载
 plugin_config: Config = get_plugin_config(Config)
-global_config = get_driver().config
-
-# 全局名称
-NICKNAME: str = next(iter(global_config.nickname), "")
