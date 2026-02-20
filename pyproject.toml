@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "将引用的消息转换为图片发送"
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "Xwei1645", email = "Xwei1645@gmail.com" }]
+authors = [{ name = "Xwei1645", email = "xwei1645@outlook.com" }]
 dependencies = [
   "aiofiles>=25.1.0",
   "nonebot-plugin-htmlrender>=0.6.7",
