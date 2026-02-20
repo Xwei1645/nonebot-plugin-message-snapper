@@ -1,9 +1,9 @@
-import os
 import json
 from typing import Any
 from pathlib import Path
 from datetime import datetime
 
+from anyio import Path as AsyncPath
 from nonebot import logger, require
 
 require("nonebot_plugin_localstore")
@@ -25,8 +25,9 @@ def _get_cache_seconds(cache_type: str) -> float:
 
 async def load_cache() -> None:
     global _group_info_cache, _member_info_cache
+    cache_file = AsyncPath(_cache_file)
 
-    if not os.path.exists(_cache_file):
+    if not await cache_file.exists():
         return
 
     try:
@@ -56,7 +57,8 @@ async def load_cache() -> None:
 
 async def save_cache() -> None:
     try:
-        _cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_dir = AsyncPath(_cache_file.parent)
+        await cache_dir.mkdir(parents=True, exist_ok=True)
 
         data = {
             "group_info": {str(k): [v[0], v[1]] for k, v in _group_info_cache.items()},
