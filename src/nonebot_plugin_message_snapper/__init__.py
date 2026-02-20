@@ -178,7 +178,9 @@ def format_time(timestamp: Any) -> str:
         return "未知时间"
 
 
-async def extract_reply_preview(bot: Bot, message: Message, group_id: int) -> dict[str, Any] | None:
+async def extract_reply_preview(
+    bot: Bot, message: Message, group_id: int
+) -> dict[str, Any] | None:
     if not isinstance(message, Message):
         return None
 
@@ -239,7 +241,9 @@ def normalize_message_payload(payload: Any) -> Message:
     return Message(str(payload))
 
 
-async def extract_message_segments(bot: Bot, group_id: int, message: Message) -> list[dict[str, str]]:
+async def extract_message_segments(
+    bot: Bot, group_id: int, message: Message
+) -> list[dict[str, str]]:
     message = normalize_message_payload(message)
 
     parts = []
@@ -277,20 +281,20 @@ async def extract_message_segments(bot: Bot, group_id: int, message: Message) ->
                 name = card or nickname or str(user_id)
             else:
                 name = qq or ""
-            # leave no space between @ and nickname, but add a trailing space after nickname
+            # leave no space between @ and nickname, but add trailing space
             parts.append({"type": "text", "content": f"@{name} "})
         elif seg.type == "reply":
             continue
         else:
             parts.append({"type": "text", "content": f"[{seg.type}]"})
 
-    # Merge adjacent text segments so that mentions and following text stay on the same line
+    # Merge adjacent text segments so mentions and following text stay on same line
     merged: list[dict[str, str]] = []
     for p in parts:
         if merged and p["type"] == "text" and merged[-1]["type"] == "text":
             prev = merged[-1]["content"]
             cur = p["content"]
-            # Collapse boundary whitespace into a single space to avoid newlines or multiple spaces
+            # Collapse boundary whitespace into single space to avoid newlines
             merged[-1]["content"] = prev.rstrip() + " " + cur.lstrip()
         else:
             merged.append(p.copy())

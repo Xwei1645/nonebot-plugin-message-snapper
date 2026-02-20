@@ -1,3 +1,4 @@
+import os
 import json
 from typing import Any
 from pathlib import Path
@@ -25,7 +26,7 @@ def _get_cache_seconds(cache_type: str) -> float:
 async def load_cache() -> None:
     global _group_info_cache, _member_info_cache
 
-    if not _cache_file.exists():
+    if not os.path.exists(_cache_file):
         return
 
     try:
