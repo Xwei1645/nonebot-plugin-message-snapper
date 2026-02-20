@@ -178,7 +178,7 @@ def format_time(timestamp: Any) -> str:
         return "未知时间"
 
 
-async def extract_reply_preview(bot: Bot, message: Message) -> dict[str, str] | None:
+async def extract_reply_preview(bot: Bot, message: Message) -> dict[str, Any] | None:
     if not isinstance(message, Message):
         return None
 
@@ -200,10 +200,13 @@ async def extract_reply_preview(bot: Bot, message: Message) -> dict[str, str] | 
             or sender.get("nickname")
             or str(sender.get("user_id") or "未知用户")
         )
-        content = extract_text_content(normalize_message_payload(quoted.get("message", "")))
+        quoted_message = normalize_message_payload(quoted.get("message", ""))
+        segments = extract_message_segments(quoted_message)
+        content = extract_text_content(quoted_message)
         return {
             "sender_name": sender_name,
             "time": format_time(quoted.get("time", 0)),
+            "segments": segments,
             "content": content or "[消息]",
         }
     return None
