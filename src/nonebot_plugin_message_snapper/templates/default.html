@@ -81,7 +81,7 @@
 
         .sender-line {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             margin-bottom: 4px;
             gap: 4px;
             flex-wrap: wrap;
@@ -116,6 +116,9 @@
         .sender-name {
             font-size: 13px;
             color: #5b5b5b;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
 
         .bubble {
@@ -166,9 +169,9 @@
             font-size: 11px;
             color: #555;
             margin-bottom: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
 
         .reply-content {
