@@ -109,11 +109,12 @@ async def handle_snap(bot: Bot, event: GroupMessageEvent) -> None:
     user_id = sender.user_id or 0
 
     sender_name = sender.card or sender.nickname or "未知用户"
+    reply_preview = await extract_reply_preview(bot, reply.message)
     message_segments = extract_message_segments(reply.message)
     message_content = extract_text_content(reply.message)
     single_image_only = is_single_image_message(message_segments)
 
-    if not message_segments:
+    if not message_segments and reply_preview is None:
         await snap.finish("无法获取消息内容，可能包含不支持的消息类型")
 
     time_str = datetime.fromtimestamp(reply.time).strftime("%Y-%m-%d %H:%M")
@@ -153,6 +154,7 @@ async def handle_snap(bot: Bot, event: GroupMessageEvent) -> None:
                 "level": level,
                 "title": title,
                 "role": role,
+                "reply_preview": reply_preview,
                 "message_segments": message_segments,
                 "single_image_only": single_image_only,
                 "message_content": message_content,
@@ -169,10 +171,73 @@ async def handle_snap(bot: Bot, event: GroupMessageEvent) -> None:
     await snap.finish(MessageSegment.image(img_bytes))
 
 
-def extract_message_segments(message: Message) -> list[dict[str, str]]:
+def format_time(timestamp: Any) -> str:
+    try:
+        return datetime.fromtimestamp(float(timestamp)).strftime("%Y-%m-%d %H:%M")
+    except (TypeError, ValueError, OSError):
+        return "未知时间"
+
+
+async def extract_reply_preview(bot: Bot, message: Message) -> dict[str, str] | None:
     if not isinstance(message, Message):
-        content = str(message).strip()
-        return [{"type": "text", "content": content}] if content else []
+        return None
+
+    for seg in message:
+        if seg.type != "reply":
+            continue
+        message_id = seg.data.get("id")
+        if message_id is None:
+            return None
+        try:
+            quoted = await bot.get_msg(message_id=int(message_id))
+        except Exception as e:
+            logger.warning(f"获取引用消息失败: {e}")
+            return None
+
+        sender = quoted.get("sender", {}) if isinstance(quoted, dict) else {}
+        sender_name = (
+            sender.get("card")
+            or sender.get("nickname")
+            or str(sender.get("user_id") or "未知用户")
+        )
+        content = extract_text_content(normalize_message_payload(quoted.get("message", "")))
+        return {
+            "sender_name": sender_name,
+            "time": format_time(quoted.get("time", 0)),
+            "content": content or "[消息]",
+        }
+    return None
+
+
+def normalize_message_payload(payload: Any) -> Message:
+    if isinstance(payload, Message):
+        return payload
+    if isinstance(payload, str):
+        return Message(payload)
+    if isinstance(payload, list):
+        segments: list[MessageSegment] = []
+        for item in payload:
+            if isinstance(item, MessageSegment):
+                segments.append(item)
+                continue
+            if isinstance(item, dict):
+                seg_type = item.get("type")
+                seg_data = item.get("data", {})
+                if isinstance(seg_type, str) and isinstance(seg_data, dict):
+                    segments.append(MessageSegment(seg_type, seg_data))
+                    continue
+            logger.warning(f"忽略无法解析的消息段: {item!r}")
+        return Message(segments)
+    if isinstance(payload, dict):
+        seg_type = payload.get("type")
+        seg_data = payload.get("data", {})
+        if isinstance(seg_type, str) and isinstance(seg_data, dict):
+            return Message([MessageSegment(seg_type, seg_data)])
+    return Message(str(payload))
+
+
+def extract_message_segments(message: Message) -> list[dict[str, str]]:
+    message = normalize_message_payload(message)
 
     parts = []
     for seg in message:
@@ -194,6 +259,8 @@ def extract_message_segments(message: Message) -> list[dict[str, str]]:
         elif seg.type == "at":
             qq = seg.data.get("qq", "")
             parts.append({"type": "text", "content": f"@{qq}"})
+        elif seg.type == "reply":
+            continue
         else:
             parts.append({"type": "text", "content": f"[{seg.type}]"})
 

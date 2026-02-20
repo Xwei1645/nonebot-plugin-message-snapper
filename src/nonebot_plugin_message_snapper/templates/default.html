@@ -154,6 +154,31 @@
             border-radius: 6px;
         }
 
+        .reply-box {
+            background: #e8e8e8;
+            border-radius: 6px;
+            padding: 7px 9px;
+            margin-bottom: 8px;
+            max-width: 100%;
+        }
+
+        .reply-header {
+            font-size: 11px;
+            color: #555;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .reply-content {
+            font-size: 13px;
+            color: #333;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+
         .time-line {
             font-size: 10px;
             color: #999;
@@ -190,6 +215,12 @@
                         <span class="sender-name">{{ sender_name }}</span>
                     </div>
                     <div class="bubble{% if single_image_only %} no-bubble{% endif %}">
+                        {% if reply_preview %}
+                        <div class="reply-box">
+                            <div class="reply-header">{{ reply_preview.sender_name }} · {{ reply_preview.time }}</div>
+                            <div class="reply-content">{{ reply_preview.content }}</div>
+                        </div>
+                        {% endif %}
                         {% for segment in message_segments %}
                         {% if segment.type == "image" %}
                         <div class="bubble-segment">
