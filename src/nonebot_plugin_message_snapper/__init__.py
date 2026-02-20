@@ -109,9 +109,11 @@ async def handle_snap(bot: Bot, event: GroupMessageEvent) -> None:
     user_id = sender.user_id or 0
 
     sender_name = sender.card or sender.nickname or "未知用户"
+    message_segments = extract_message_segments(reply.message)
     message_content = extract_text_content(reply.message)
+    single_image_only = is_single_image_message(message_segments)
 
-    if not message_content:
+    if not message_segments:
         await snap.finish("无法获取消息内容，可能包含不支持的消息类型")
 
     time_str = datetime.fromtimestamp(reply.time).strftime("%Y-%m-%d %H:%M")
@@ -151,6 +153,8 @@ async def handle_snap(bot: Bot, event: GroupMessageEvent) -> None:
                 "level": level,
                 "title": title,
                 "role": role,
+                "message_segments": message_segments,
+                "single_image_only": single_image_only,
                 "message_content": message_content,
                 "time": time_str,
             },
@@ -165,23 +169,50 @@ async def handle_snap(bot: Bot, event: GroupMessageEvent) -> None:
     await snap.finish(MessageSegment.image(img_bytes))
 
 
-def extract_text_content(message: Message) -> str:
+def extract_message_segments(message: Message) -> list[dict[str, str]]:
     if not isinstance(message, Message):
-        return str(message)
+        content = str(message).strip()
+        return [{"type": "text", "content": content}] if content else []
 
     parts = []
     for seg in message:
         if seg.type == "text":
-            parts.append(seg.data.get("text", ""))
+            text = seg.data.get("text", "")
+            if text:
+                parts.append({"type": "text", "content": text})
+        elif seg.type == "image":
+            image_url = seg.data.get("url") or seg.data.get("file") or ""
+            if image_url:
+                parts.append({"type": "image", "content": image_url})
+            else:
+                parts.append({"type": "text", "content": "[图片]"})
         elif seg.type == "face":
             face_id = seg.data.get("id", 0)
-            parts.append(f"[表情:{face_id}]")
+            parts.append({"type": "text", "content": f"[表情:{face_id}]"})
         elif seg.type == "emoji":
-            parts.append(seg.data.get("text", "[emoji]"))
+            parts.append({"type": "text", "content": seg.data.get("text", "[emoji]")})
         elif seg.type == "at":
             qq = seg.data.get("qq", "")
-            parts.append(f"@{qq}")
+            parts.append({"type": "text", "content": f"@{qq}"})
         else:
-            parts.append(f"[{seg.type}]")
+            parts.append({"type": "text", "content": f"[{seg.type}]"})
 
+    return parts
+
+
+def extract_text_content(message: Message) -> str:
+    parts = []
+    for seg in extract_message_segments(message):
+        if seg["type"] == "image":
+            parts.append("[图片]")
+        else:
+            parts.append(seg["content"])
     return "".join(parts).strip()
+
+
+def is_single_image_message(message_segments: list[dict[str, str]]) -> bool:
+    return (
+        len(message_segments) == 1
+        and message_segments[0].get("type") == "image"
+        and bool(message_segments[0].get("content"))
+    )

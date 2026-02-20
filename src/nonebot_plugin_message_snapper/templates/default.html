@@ -127,6 +127,13 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
+        .bubble.no-bubble {
+            background: transparent;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
+        }
+
         .bubble-text {
             font-size: 16px;
             line-height: 1.5;
@@ -134,6 +141,17 @@
             white-space: pre-wrap;
             word-break: break-word;
             overflow-wrap: anywhere;
+        }
+
+        .bubble-segment+.bubble-segment {
+            margin-top: 6px;
+        }
+
+        .message-image {
+            display: block;
+            max-width: 320px;
+            max-height: 420px;
+            border-radius: 6px;
         }
 
         .time-line {
@@ -171,8 +189,16 @@
                         {% endif %}
                         <span class="sender-name">{{ sender_name }}</span>
                     </div>
-                    <div class="bubble">
-                        <div class="bubble-text">{{ message_content }}</div>
+                    <div class="bubble{% if single_image_only %} no-bubble{% endif %}">
+                        {% for segment in message_segments %}
+                        {% if segment.type == "image" %}
+                        <div class="bubble-segment">
+                            <img class="message-image" src="{{ segment.content }}" alt="image">
+                        </div>
+                        {% else %}
+                        <div class="bubble-segment bubble-text">{{ segment.content }}</div>
+                        {% endif %}
+                        {% endfor %}
                     </div>
                 </div>
             </div>
