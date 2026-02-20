@@ -109,9 +109,9 @@ async def handle_snap(bot: Bot, event: GroupMessageEvent) -> None:
     user_id = sender.user_id or 0
 
     sender_name = sender.card or sender.nickname or "未知用户"
-    reply_preview = await extract_reply_preview(bot, reply.message)
-    message_segments = extract_message_segments(reply.message)
-    message_content = extract_text_content(reply.message)
+    reply_preview = await extract_reply_preview(bot, reply.message, group_id)
+    message_segments = await extract_message_segments(bot, group_id, reply.message)
+    message_content = await extract_text_content(bot, group_id, reply.message)
     single_image_only = is_single_image_message(message_segments)
 
     if not message_segments and reply_preview is None:
@@ -178,7 +178,7 @@ def format_time(timestamp: Any) -> str:
         return "未知时间"
 
 
-async def extract_reply_preview(bot: Bot, message: Message) -> dict[str, Any] | None:
+async def extract_reply_preview(bot: Bot, message: Message, group_id: int) -> dict[str, Any] | None:
     if not isinstance(message, Message):
         return None
 
@@ -201,8 +201,8 @@ async def extract_reply_preview(bot: Bot, message: Message) -> dict[str, Any] | 
             or str(sender.get("user_id") or "未知用户")
         )
         quoted_message = normalize_message_payload(quoted.get("message", ""))
-        segments = extract_message_segments(quoted_message)
-        content = extract_text_content(quoted_message)
+        segments = await extract_message_segments(bot, group_id, quoted_message)
+        content = await extract_text_content(bot, group_id, quoted_message)
         return {
             "sender_name": sender_name,
             "time": format_time(quoted.get("time", 0)),
@@ -239,7 +239,7 @@ def normalize_message_payload(payload: Any) -> Message:
     return Message(str(payload))
 
 
-def extract_message_segments(message: Message) -> list[dict[str, str]]:
+async def extract_message_segments(bot: Bot, group_id: int, message: Message) -> list[dict[str, str]]:
     message = normalize_message_payload(message)
 
     parts = []
@@ -261,18 +261,46 @@ def extract_message_segments(message: Message) -> list[dict[str, str]]:
             parts.append({"type": "text", "content": seg.data.get("text", "[emoji]")})
         elif seg.type == "at":
             qq = seg.data.get("qq", "")
-            parts.append({"type": "text", "content": f"@{qq}"})
+            name = ""
+            user_id = None
+            if isinstance(qq, int):
+                user_id = qq
+            else:
+                try:
+                    user_id = int(qq)
+                except Exception:
+                    user_id = None
+            if user_id is not None:
+                member_info = await get_member_info(bot, group_id, user_id)
+                card = member_info.get("card", "") or ""
+                nickname = member_info.get("nickname", "") or ""
+                name = card or nickname or str(user_id)
+            else:
+                name = qq or ""
+            # leave no space between @ and nickname, but add a trailing space after nickname
+            parts.append({"type": "text", "content": f"@{name} "})
         elif seg.type == "reply":
             continue
         else:
             parts.append({"type": "text", "content": f"[{seg.type}]"})
 
-    return parts
+    # Merge adjacent text segments so that mentions and following text stay on the same line
+    merged: list[dict[str, str]] = []
+    for p in parts:
+        if merged and p["type"] == "text" and merged[-1]["type"] == "text":
+            prev = merged[-1]["content"]
+            cur = p["content"]
+            # Collapse boundary whitespace into a single space to avoid newlines or multiple spaces
+            merged[-1]["content"] = prev.rstrip() + " " + cur.lstrip()
+        else:
+            merged.append(p.copy())
+
+    return merged
 
 
-def extract_text_content(message: Message) -> str:
+async def extract_text_content(bot: Bot, group_id: int, message: Message) -> str:
     parts = []
-    for seg in extract_message_segments(message):
+    for seg in await extract_message_segments(bot, group_id, message):
         if seg["type"] == "image":
             parts.append("[图片]")
         else:
